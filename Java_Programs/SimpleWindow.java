@@ -2,6 +2,16 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.io.File;
+import java.io.IOException;
 
 public class SimpleWindow {
 
@@ -66,6 +76,8 @@ public class SimpleWindow {
         button1.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 cardLayout.show(cardPanel, "CreateListings");
+                // Trigger API request when this button is pressed
+                sendApiRequest();
             }
         });
 
@@ -106,4 +118,160 @@ public class SimpleWindow {
         // Make the window visible
         frame.setVisible(true);
     }
+
+    // Method to make an API request when a button is pressed
+    public static void sendApiRequest() {
+        // API endpoint and OAuth token placeholder
+        String endpointUrl = "https://api.ebay.com/buy/browse/v1/item_summary/search?q=iphone";
+        String oauthToken = "YOUR_ACCESS_TOKEN"; // Replace with OAuth token
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(endpointUrl))
+                .header("Authorization", "Bearer " + oauthToken)
+                .header("Content-Type", "application/json")
+                .GET()
+                .build();
+
+        // Asynchronous API call to prevent freezing the GUI
+        client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+              .thenApply(HttpResponse::body)
+              .thenAccept(response -> {
+                  // Handle response here
+                  System.out.println("API Response: " + response);
+              })
+              .exceptionally(e -> {
+                  e.printStackTrace();
+                  return null;
+              });
+    }
+    //Get order details to help with printing a shipping label
+    public static void getOrderDetails(String orderId, String oauthToken) {
+        String endpointUrl = "https://api.ebay.com/sell/fulfillment/v1/order/" + orderId;
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(endpointUrl))
+                .header("Authorization", "Bearer " + oauthToken)
+                .header("Content-Type", "application/json")
+                .GET()
+                .build();
+
+        client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+              .thenApply(HttpResponse::body)
+              .thenAccept(response -> {
+                  System.out.println("Order Details: " + response);
+              })
+              .exceptionally(e -> {
+                  e.printStackTrace();
+                  return null;
+              });
+    }
+    //Given some order details, I would fill in the necessary info to create a shipping label. The response would include a url for the label
+    public static void purchaseShippingLabel(String orderId, String oauthToken) {
+        String endpointUrl = "https://api.ebay.com/post-order/v2/return_shipping_label";
+
+        String requestBody = "{"
+                + "\"orderId\": \"" + orderId + "\","
+                + "\"labelRequest\": {"
+                + "    \"carrierEnum\": \"USPS\","
+                + "    \"serviceTypeEnum\": \"USPS_PRIORITY\","
+                + "    \"labelFormatEnum\": \"PDF\","
+                + "    \"dimensions\": {"
+                + "        \"height\": 10,"
+                + "        \"length\": 15,"
+                + "        \"width\": 3"
+                + "    },"
+                + "    \"weight\": {"
+                + "        \"unitOfMeasure\": \"POUND\","
+                + "        \"value\": 2.0"
+                + "    }"
+                + "}"
+                + "}";
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(endpointUrl))
+                .header("Authorization", "Bearer " + oauthToken)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .build();
+
+        client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+              .thenApply(HttpResponse::body)
+              .thenAccept(response -> {
+                  System.out.println("Shipping Label Response: " + response);
+              })
+              .exceptionally(e -> {
+                  e.printStackTrace();
+                  return null;
+              });
+    }
+    // Method to download and print the shipping label with a unique name
+    public static void downloadAndPrintLabel(String labelUrl, String orderId) {
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(labelUrl))
+                .header("Content-Type", "application/pdf")
+                .GET()
+                .build();
+
+        // Download the label
+        client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+              .thenApply(HttpResponse::body)
+              .thenAccept(labelBytes -> {
+                  try {
+                      // Generate a unique file name using orderId and timestamp
+                      String fileName = generateUniqueFileName(orderId);
+                      String filePath = "C:/Downloads/" + fileName;
+
+                      // Save the label as a PDF file
+                      Files.write(Paths.get(filePath), labelBytes);
+                      System.out.println("Label downloaded successfully: " + filePath);
+
+                      // Open the print dialog to print the label
+                      printFile(filePath);
+                  } catch (IOException e) {
+                      e.printStackTrace();
+                  }
+              })
+              .exceptionally(e -> {
+                  e.printStackTrace();
+                  return null;
+              });
+    }
+
+    // Method to generate a unique file name based on order ID and timestamp
+    public static String generateUniqueFileName(String orderId) {
+        // Get current timestamp in a readable format
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+        String timestamp = LocalDateTime.now().format(formatter);
+        
+        // Create a unique file name
+        return "shipping_label_" + orderId + "_" + timestamp + ".pdf";
+    }
+
+    // Method to open the print dialog for a file
+    public static void printFile(String filePath) {
+        try {
+            // Create a file object from the downloaded file path
+            File file = new File(filePath);
+
+            // Check if the desktop is supported on the current platform
+            if (Desktop.isDesktopSupported()) {
+                Desktop desktop = Desktop.getDesktop();
+                if (desktop.isSupported(Desktop.Action.PRINT)) {
+                    // Open the print dialog
+                    desktop.print(file);
+                } else {
+                    System.out.println("Printing is not supported on this platform.");
+                }
+            } else {
+                System.out.println("Desktop is not supported on this platform.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 }
