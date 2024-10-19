@@ -8,14 +8,20 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 
 public class SimpleWindow {
 
     public static void main(String[] args) {
+
         // Create a new JFrame (window)
         JFrame frame = new JFrame("Lighthouse");
 
@@ -34,10 +40,10 @@ public class SimpleWindow {
         // Create buttons for the main menu
         JButton button1 = new JButton("Create Listings");
         button1.setPreferredSize(new Dimension(160, 40));
-        
+
         JButton button2 = new JButton("Print Labels");
         button2.setPreferredSize(new Dimension(160, 40));
-        
+
         JButton button3 = new JButton("View Sales");
         button3.setPreferredSize(new Dimension(160, 40));
 
@@ -47,22 +53,94 @@ public class SimpleWindow {
         mainMenuPanel.add(button3);
 
         // Create additional panels (sub-menus) for each button
-        JPanel createListingsPanel = new JPanel();
-        createListingsPanel.add(new JLabel("Create Listings Menu"));
-
+        JPanel createListingsPanel = new JPanel(new GridBagLayout());
         JPanel printLabelsPanel = new JPanel();
-        printLabelsPanel.add(new JLabel("Print Labels Menu"));
-
         JPanel viewSalesPanel = new JPanel();
+
+        printLabelsPanel.add(new JLabel("Print Labels Menu"));
         viewSalesPanel.add(new JLabel("View Sales Menu"));
 
-        // Add "Back" buttons to each submenu
+        // Add form fields for "Create Listings" panel
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        JLabel skuLabel = new JLabel("SKU:");
+        JTextField skuField = new JTextField(20);
+        JLabel titleLabel = new JLabel("Title:");
+        JTextField titleField = new JTextField(20);
+        JLabel descriptionLabel = new JLabel("Description:");
+        JTextField descriptionField = new JTextField(20);
+        JLabel priceLabel = new JLabel("Price (USD):");
+        JTextField priceField = new JTextField(20);
+        JLabel quantityLabel = new JLabel("Quantity:");
+        JTextField quantityField = new JTextField(20);
+
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        createListingsPanel.add(skuLabel, gbc);
+        gbc.gridx = 1;
+        createListingsPanel.add(skuField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        createListingsPanel.add(titleLabel, gbc);
+        gbc.gridx = 1;
+        createListingsPanel.add(titleField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        createListingsPanel.add(descriptionLabel, gbc);
+        gbc.gridx = 1;
+        createListingsPanel.add(descriptionField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        createListingsPanel.add(priceLabel, gbc);
+        gbc.gridx = 1;
+        createListingsPanel.add(priceField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        createListingsPanel.add(quantityLabel, gbc);
+        gbc.gridx = 1;
+        createListingsPanel.add(quantityField, gbc);
+
+        // Create Submit button for "Create Listings"
+        JButton submitButton = new JButton("Submit");
+        gbc.gridx = 0;
+        gbc.gridy = 5;
+        gbc.gridwidth = 2;
+        createListingsPanel.add(submitButton, gbc);
+
+        // Action listener for the Submit button
+        submitButton.addActionListener(e -> {
+            String sku = skuField.getText();
+            String title = titleField.getText();
+            String description = descriptionField.getText();
+            String price = priceField.getText();
+            String quantity = quantityField.getText();
+
+            // Trigger the API call for creating a listing
+            try {
+                createListing(sku, title, description, price, quantity);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        });
+
+        // Create Back button for the "Create Listings" panel
         JButton backButton1 = new JButton("Back to Main Menu");
+        gbc.gridy = 6;
+        createListingsPanel.add(backButton1, gbc);
+
+        backButton1.addActionListener(e -> {
+            cardLayout.show(cardPanel, "MainMenu");
+        });
+
+        // Back buttons for the other panels
         JButton backButton2 = new JButton("Back to Main Menu");
         JButton backButton3 = new JButton("Back to Main Menu");
 
-        // Add "Back" buttons to each respective submenu
-        createListingsPanel.add(backButton1);
         printLabelsPanel.add(backButton2);
         viewSalesPanel.add(backButton3);
 
@@ -73,44 +151,19 @@ public class SimpleWindow {
         cardPanel.add(viewSalesPanel, "ViewSales");
 
         // Add functionality to switch menus when buttons are pressed
-        button1.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                cardLayout.show(cardPanel, "CreateListings");
-                // Trigger API request when this button is pressed
-                sendApiRequest();
-            }
-        });
-
-        button2.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                cardLayout.show(cardPanel, "PrintLabels");
-            }
-        });
-
+        button1.addActionListener(e -> cardLayout.show(cardPanel, "CreateListings"));
+        button2.addActionListener(e -> cardLayout.show(cardPanel, "PrintLabels"));
         button3.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                cardLayout.show(cardPanel, "ViewSales");
+            	createTable();
+            	insertSampleData();
+                SalesDataDisplay.showSalesData(); // Show sales data on button click
             }
         });
 
         // Add functionality to the "Back" buttons to return to the main menu
-        backButton1.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                cardLayout.show(cardPanel, "MainMenu");
-            }
-        });
-
-        backButton2.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                cardLayout.show(cardPanel, "MainMenu");
-            }
-        });
-
-        backButton3.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                cardLayout.show(cardPanel, "MainMenu");
-            }
-        });
+        backButton2.addActionListener(e -> cardLayout.show(cardPanel, "MainMenu"));
+        backButton3.addActionListener(e -> cardLayout.show(cardPanel, "MainMenu"));
 
         // Add the card panel to the frame
         frame.add(cardPanel);
@@ -119,31 +172,39 @@ public class SimpleWindow {
         frame.setVisible(true);
     }
 
-    // Method to make an API request when a button is pressed
-    public static void sendApiRequest() {
-        // API endpoint and OAuth token placeholder
-        String endpointUrl = "https://api.ebay.com/buy/browse/v1/item_summary/search?q=iphone";
-        String oauthToken = "YOUR_ACCESS_TOKEN"; // Replace with OAuth token
+    // Method to make the API request for creating a listing
+    public static void createListing(String sku, String title, String description, String price, String quantity) throws Exception {
+        String oauthToken = "YOUR_ACCESS_TOKEN";  // Replace with your OAuth token
+        String url = "https://api.ebay.com/sell/inventory/v1/inventory_item";  // eBay API endpoint
+
+        Map<String, Object> listingData = new HashMap<>();
+        listingData.put("sku", sku);
+        listingData.put("product", Map.of("title", title, "description", description));
+        listingData.put("price", Map.of("value", price, "currency", "USD"));
+        listingData.put("availability", Map.of("shipToLocationAvailability", Map.of("quantity", Integer.parseInt(quantity))));
+
+        // Convert the listing data to JSON
+        ObjectMapper objectMapper = new ObjectMapper();
+        String jsonPayload = objectMapper.writeValueAsString(listingData);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(endpointUrl))
+                .uri(URI.create(url))
                 .header("Authorization", "Bearer " + oauthToken)
                 .header("Content-Type", "application/json")
-                .GET()
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
                 .build();
 
-        // Asynchronous API call to prevent freezing the GUI
+        // Send the request asynchronously
         client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-              .thenApply(HttpResponse::body)
-              .thenAccept(response -> {
-                  // Handle response here
-                  System.out.println("API Response: " + response);
-              })
-              .exceptionally(e -> {
-                  e.printStackTrace();
-                  return null;
-              });
+                .thenApply(HttpResponse::body)
+                .thenAccept(response -> {
+                    System.out.println("API Response: " + response);
+                })
+                .exceptionally(e -> {
+                    e.printStackTrace();
+                    return null;
+                });
     }
     //Get order details to help with printing a shipping label
     public static void getOrderDetails(String orderId, String oauthToken) {
@@ -273,5 +334,73 @@ public class SimpleWindow {
             e.printStackTrace();
         }
     }
+    public static void connect() {
+        Connection conn = null;
+        try {
+            // Connect to SQLite database (it will create the file if it doesn't exist)
+            String url = "jdbc:sqlite:salesdata.db";
+            conn = DriverManager.getConnection(url);
 
+            System.out.println("Connection to SQLite has been established.");
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        } finally {
+            try {
+                if (conn != null) {
+                    conn.close();
+                }
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());
+            }
+        }
+    }
+    public static void createTable() {
+        // Database connection string (file location)
+        String url = "jdbc:sqlite:salesdata.db";
+
+        // SQL statement to create the table
+        String sql = "CREATE TABLE IF NOT EXISTS sales ("
+                    + " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + " item_id TEXT NOT NULL,"
+                    + " item_title TEXT NOT NULL,"
+                    + " price REAL,"
+                    + " quantity INTEGER,"
+                    + " sale_date TEXT"
+                    + ");";
+
+        // Establish connection and execute the SQL
+        try (Connection conn = DriverManager.getConnection(url);
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);  // Execute the create table statement
+            System.out.println("Sales table created or already exists.");
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }
+    public static void insertSampleData() {
+        // Sample sales data
+        insertSalesData("12345", "Sample Item 1", 19.99, 1, "2024-10-10");
+        insertSalesData("12346", "Sample Item 2", 49.99, 2, "2024-10-11");
+        insertSalesData("12347", "Sample Item 3", 29.99, 1, "2024-10-12");
+    }
+
+    public static void insertSalesData(String itemId, String itemTitle, double price, int quantity, String saleDate) {
+        String url = "jdbc:sqlite:salesdata.db";
+        String sql = "INSERT INTO sales(item_id, item_title, price, quantity, sale_date) VALUES(?, ?, ?, ?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(url);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, itemId);
+            pstmt.setString(2, itemTitle);
+            pstmt.setDouble(3, price);
+            pstmt.setInt(4, quantity);
+            pstmt.setString(5, saleDate);
+
+            pstmt.executeUpdate();
+            System.out.println("Inserted sample sales data.");
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }
 }
