@@ -13,16 +13,17 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-
+//Class with the main method and main body of code
 public class SimpleWindow {
 
     public static void main(String[] args) {
-
-        // Create a new JFrame (window)
+  	
+    	// Create a new JFrame (window)
         JFrame frame = new JFrame("Lighthouse");
 
         // Set the size of the window
@@ -53,7 +54,6 @@ public class SimpleWindow {
         mainMenuPanel.add(button3);
 
         // Create additional panels (sub-menus) for each button
-        JPanel createListingsPanel = new JPanel(new GridBagLayout());
         JPanel printLabelsPanel = new JPanel();
         JPanel viewSalesPanel = new JPanel();
 
@@ -64,65 +64,63 @@ public class SimpleWindow {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        JLabel skuLabel = new JLabel("SKU:");
-        JTextField skuField = new JTextField(20);
+        // Create Listings panel with image upload
+        JPanel createListingsPanel = new JPanel();
+        createListingsPanel.setLayout(new BoxLayout(createListingsPanel, BoxLayout.Y_AXIS));
+
         JLabel titleLabel = new JLabel("Title:");
         JTextField titleField = new JTextField(20);
-        JLabel descriptionLabel = new JLabel("Description:");
-        JTextField descriptionField = new JTextField(20);
-        JLabel priceLabel = new JLabel("Price (USD):");
+        createListingsPanel.add(titleLabel);
+        createListingsPanel.add(titleField);
+
+        JLabel priceLabel = new JLabel("Price:");
         JTextField priceField = new JTextField(20);
-        JLabel quantityLabel = new JLabel("Quantity:");
-        JTextField quantityField = new JTextField(20);
+        createListingsPanel.add(priceLabel);
+        createListingsPanel.add(priceField);
 
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        createListingsPanel.add(skuLabel, gbc);
-        gbc.gridx = 1;
-        createListingsPanel.add(skuField, gbc);
+        JLabel descriptionLabel = new JLabel("Description:");
+        JTextArea descriptionField = new JTextArea(5, 20);
+        createListingsPanel.add(descriptionLabel);
+        createListingsPanel.add(new JScrollPane(descriptionField));
 
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        createListingsPanel.add(titleLabel, gbc);
-        gbc.gridx = 1;
-        createListingsPanel.add(titleField, gbc);
+        JLabel imageLabel = new JLabel("Images:");
+        JTextArea imageListArea = new JTextArea(5, 20);
+        imageListArea.setEditable(false);
+        createListingsPanel.add(imageLabel);
+        createListingsPanel.add(new JScrollPane(imageListArea));
 
-        gbc.gridx = 0;
-        gbc.gridy = 2;
-        createListingsPanel.add(descriptionLabel, gbc);
-        gbc.gridx = 1;
-        createListingsPanel.add(descriptionField, gbc);
+        JButton uploadImageButton = new JButton("Select Images");
+        ArrayList<File> selectedImages = new ArrayList<>();
 
-        gbc.gridx = 0;
-        gbc.gridy = 3;
-        createListingsPanel.add(priceLabel, gbc);
-        gbc.gridx = 1;
-        createListingsPanel.add(priceField, gbc);
+        uploadImageButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFileChooser fileChooser = new JFileChooser();
+                fileChooser.setMultiSelectionEnabled(true);
+                fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+                int option = fileChooser.showOpenDialog(frame);
+                if (option == JFileChooser.APPROVE_OPTION) {
+                    File[] files = fileChooser.getSelectedFiles();
+                    for (File file : files) {
+                        selectedImages.add(file);
+                        imageListArea.append(file.getAbsolutePath() + "\n");
+                    }
+                }
+            }
+        });
 
-        gbc.gridx = 0;
-        gbc.gridy = 4;
-        createListingsPanel.add(quantityLabel, gbc);
-        gbc.gridx = 1;
-        createListingsPanel.add(quantityField, gbc);
-
-        // Create Submit button for "Create Listings"
-        JButton submitButton = new JButton("Submit");
-        gbc.gridx = 0;
-        gbc.gridy = 5;
-        gbc.gridwidth = 2;
-        createListingsPanel.add(submitButton, gbc);
+        createListingsPanel.add(uploadImageButton);
 
         // Action listener for the Submit button
+        JButton submitButton = new JButton("Submit");
         submitButton.addActionListener(e -> {
-            String sku = skuField.getText();
             String title = titleField.getText();
             String description = descriptionField.getText();
             String price = priceField.getText();
-            String quantity = quantityField.getText();
 
             // Trigger the API call for creating a listing
             try {
-                createListing(sku, title, description, price, quantity);
+                createListing(title, description, price);
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -130,8 +128,7 @@ public class SimpleWindow {
 
         // Create Back button for the "Create Listings" panel
         JButton backButton1 = new JButton("Back to Main Menu");
-        gbc.gridy = 6;
-        createListingsPanel.add(backButton1, gbc);
+        createListingsPanel.add(backButton1);
 
         backButton1.addActionListener(e -> {
             cardLayout.show(cardPanel, "MainMenu");
@@ -142,6 +139,7 @@ public class SimpleWindow {
         JButton backButton3 = new JButton("Back to Main Menu");
 
         printLabelsPanel.add(backButton2);
+        //The view sales back button has been deprecated since the table appears in a new window
         viewSalesPanel.add(backButton3);
 
         // Add all panels to the cardPanel
@@ -155,6 +153,7 @@ public class SimpleWindow {
         button2.addActionListener(e -> cardLayout.show(cardPanel, "PrintLabels"));
         button3.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
+            	SalesDataDisplay.initializeDatabase();
             	createTable();
             	insertSampleData();
                 SalesDataDisplay.showSalesData(); // Show sales data on button click
@@ -173,15 +172,14 @@ public class SimpleWindow {
     }
 
     // Method to make the API request for creating a listing
-    public static void createListing(String sku, String title, String description, String price, String quantity) throws Exception {
-        String oauthToken = "YOUR_ACCESS_TOKEN";  // Replace with your OAuth token
+    public static void createListing(String title, String description, String price) throws Exception {
+        String oauthToken = "YOUR_ACCESS_TOKEN";  // Replace with OAuth token
         String url = "https://api.ebay.com/sell/inventory/v1/inventory_item";  // eBay API endpoint
 
         Map<String, Object> listingData = new HashMap<>();
-        listingData.put("sku", sku);
         listingData.put("product", Map.of("title", title, "description", description));
         listingData.put("price", Map.of("value", price, "currency", "USD"));
-        listingData.put("availability", Map.of("shipToLocationAvailability", Map.of("quantity", Integer.parseInt(quantity))));
+        
 
         // Convert the listing data to JSON
         ObjectMapper objectMapper = new ObjectMapper();
@@ -268,7 +266,7 @@ public class SimpleWindow {
                   return null;
               });
     }
-    // Method to download and print the shipping label with a unique name
+    // Method to download and print the shipping label with a unique name. Do not run, test in PrintLabel.java.
     public static void downloadAndPrintLabel(String labelUrl, String orderId) {
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -318,7 +316,7 @@ public class SimpleWindow {
             // Create a file object from the downloaded file path
             File file = new File(filePath);
 
-            // Check if the desktop is supported on the current platform
+            // Check if the desktop is supported on the current platform. Mobile would not work here.
             if (Desktop.isDesktopSupported()) {
                 Desktop desktop = Desktop.getDesktop();
                 if (desktop.isSupported(Desktop.Action.PRINT)) {
@@ -337,7 +335,7 @@ public class SimpleWindow {
     public static void connect() {
         Connection conn = null;
         try {
-            // Connect to SQLite database (it will create the file if it doesn't exist)
+            // Connect to SQLite database, or create the file if it doesn't exist
             String url = "jdbc:sqlite:salesdata.db";
             conn = DriverManager.getConnection(url);
 
@@ -377,13 +375,13 @@ public class SimpleWindow {
             System.out.println(e.getMessage());
         }
     }
+    // Sample sales data
     public static void insertSampleData() {
-        // Sample sales data
         insertSalesData("12345", "Sample Item 1", 19.99, 1, "2024-10-10");
         insertSalesData("12346", "Sample Item 2", 49.99, 2, "2024-10-11");
         insertSalesData("12347", "Sample Item 3", 29.99, 1, "2024-10-12");
     }
-
+    //Method to take sales data and place in the database
     public static void insertSalesData(String itemId, String itemTitle, double price, int quantity, String saleDate) {
         String url = "jdbc:sqlite:salesdata.db";
         String sql = "INSERT INTO sales(item_id, item_title, price, quantity, sale_date) VALUES(?, ?, ?, ?, ?)";
@@ -398,9 +396,10 @@ public class SimpleWindow {
             pstmt.setString(5, saleDate);
 
             pstmt.executeUpdate();
-            System.out.println("Inserted sample sales data.");
+            System.out.println("Inserted sales data.");
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
     }
+
 }

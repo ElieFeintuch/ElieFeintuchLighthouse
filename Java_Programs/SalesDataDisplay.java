@@ -1,7 +1,27 @@
 import javax.swing.*;
 import java.sql.*;
 
+//Helper class for database related operations, currently shows the table
 public class SalesDataDisplay {
+	//Reset the table to a blank slate
+    public static void initializeDatabase() {
+        String url = "jdbc:sqlite:salesdata.db"; // replace with the actual path to your database file
+
+        try (Connection conn = DriverManager.getConnection(url)) {
+            if (conn != null) {
+                conn.setAutoCommit(true);  // Enable auto-commit if it’s disabled by default
+
+                Statement stmt = conn.createStatement();
+                // Clear the sales data table
+                String clearTableSql = "DELETE FROM sales;";
+                stmt.executeUpdate(clearTableSql);
+
+                System.out.println("Sales data table cleared on program start.");
+            }
+        } catch (SQLException e) {
+            System.out.println("Error clearing table: " + e.getMessage());
+        }
+    }
 	public static int getRowCount(String tableName) {
 	    String url = "jdbc:sqlite:salesdata.db";
 	    String countSql = "SELECT COUNT(*) FROM " + tableName;
