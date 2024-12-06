@@ -1,96 +1,84 @@
-import java.awt.Desktop;
+import javax.print.*;
+import javax.print.attribute.*;
+import javax.print.attribute.standard.*;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 public class PrintLabel {
 
     public static void main(String[] args) {
-        // The URL of the shipping label
-        String labelUrl = "https://example.com/path-to-shipping-label.pdf";
-        // Example order ID
-        String orderId = "1234567890";
+        // Path to the sample label file
+        String labelFilePath = "C:\\Users\\benst\\Downloads\\label.png";
 
-        // Download and then print the label
-        //downloadAndPrintLabel(labelUrl, orderId);
-        printFile("C:\\Users\\benst\\Downloads\\test2.txt");
-
+        printLabel(labelFilePath);
     }
 
-    // Method to download and print the shipping label with a unique name
-    public static void downloadAndPrintLabel(String labelUrl, String orderId) {
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(labelUrl))
-                .header("Content-Type", "application/pdf")
-                .GET()
-                .build();
+    public static void printLabel(String filePath) {
+        FileInputStream fileInputStream = null;
 
-        // Download the label
-        client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
-              .thenApply(HttpResponse::body)
-              .thenAccept(labelBytes -> {
-                  try {
-                      // Generate a unique file name using orderId and timestamp
-                      String fileName = generateUniqueFileName(orderId);
-                      //String filePath = "C:/Downloads/" + fileName;
-                      //For now, just insert a file for testing
-                      String filePath = "C:\\Users\\benst\\Downloads\\testLabel.png";
-
-                      // Save the label as a PDF file
-                      Files.write(Paths.get(filePath), labelBytes);
-                      System.out.println("Label downloaded successfully: " + filePath);
-
-                      // Open the print dialog to print the label
-                      printFile(filePath);
-                  } catch (IOException e) {
-                      e.printStackTrace();
-                  }
-              })
-              .exceptionally(e -> {
-                  e.printStackTrace();
-                  return null;
-              });
-    }
-
-    // Method to generate a unique file name based on order ID and timestamp
-    public static String generateUniqueFileName(String orderId) {
-        // Get current timestamp in a readable format
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
-        String timestamp = LocalDateTime.now().format(formatter);
-        
-        // Create a unique file name
-        return "shipping_label_" + orderId + "_" + timestamp + ".pdf";
-    }
-
-    // Method to open the print dialog for a file
-    public static void printFile(String filePath) {
         try {
-            // Create a file object from the downloaded file path
-            File file = new File(filePath);
+            // Load the label file as a FileInputStream
+            File labelFile = new File(filePath);
+            fileInputStream = new FileInputStream(labelFile);
 
-            // Check if the desktop is supported on the current platform
-            if (Desktop.isDesktopSupported()) {
-                Desktop desktop = Desktop.getDesktop();
-                if (desktop.isSupported(Desktop.Action.PRINT)) {
-                    // Open the print dialog
-                    desktop.print(file);
-                } else {
-                    System.out.println("Printing is not supported on this platform.");
-                }
-            } else {
-                System.out.println("Desktop is not supported on this platform.");
+            // Determine the file type (MIME type)
+            DocFlavor flavor = DocFlavor.INPUT_STREAM.PNG;
+
+            // Locate available print services
+            PrintService[] printServices = PrintServiceLookup.lookupPrintServices(flavor, null);
+
+            if (printServices.length == 0) {
+                System.out.println("No compatible print services found. Please check your printer settings.");
+                return;
             }
+
+            // Set up print attributes
+            PrintRequestAttributeSet attributes = new HashPrintRequestAttributeSet();
+            attributes.add(new Copies(1)); // Number of copies
+            attributes.add(MediaSizeName.ISO_A4); // Paper size
+            attributes.add(OrientationRequested.PORTRAIT); // Orientation
+
+            // Show the print dialog to the user
+            PrintService selectedService = ServiceUI.printDialog(
+                    null, // Parent component (null means center on screen)
+                    200, // X position of the dialog
+                    200, // Y position of the dialog
+                    printServices, // List of available print services
+                    PrintServiceLookup.lookupDefaultPrintService(), // Default print service
+                    flavor, // Doc flavor
+                    attributes // Print request attributes
+            );
+
+            // If the user cancels the dialog, selectedService will be null
+            if (selectedService == null) {
+                System.out.println("Print job canceled by the user.");
+                return;
+            }
+
+            // Create a print job for the selected printer
+            DocPrintJob printJob = selectedService.createPrintJob();
+
+            // Create a Doc object to send to the printer
+            Doc doc = new SimpleDoc(fileInputStream, flavor, null);
+
+            // Print the document
+            printJob.print(doc, attributes);
+
+            System.out.println("Print job sent successfully!");
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("Error reading the file: " + e.getMessage());
+        } catch (PrintException e) {
+            System.out.println("Error printing the document: " + e.getMessage());
+        } finally {
+            // Close the file input stream
+            if (fileInputStream != null) {
+                try {
+                    fileInputStream.close();
+                } catch (IOException e) {
+                    System.out.println("Error closing the file stream: " + e.getMessage());
+                }
+            }
         }
     }
 }
-

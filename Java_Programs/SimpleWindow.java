@@ -1,3 +1,16 @@
+import javax.print.Doc;
+import javax.print.DocFlavor;
+import javax.print.DocPrintJob;
+import javax.print.PrintException;
+import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
+import javax.print.ServiceUI;
+import javax.print.SimpleDoc;
+import javax.print.attribute.HashPrintRequestAttributeSet;
+import javax.print.attribute.PrintRequestAttributeSet;
+import javax.print.attribute.standard.Copies;
+import javax.print.attribute.standard.MediaSizeName;
+import javax.print.attribute.standard.OrientationRequested;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -12,6 +25,7 @@ import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,52 +68,98 @@ public class SimpleWindow {
         mainMenuPanel.add(button3);
 
         // Create additional panels (sub-menus) for each button
-        JPanel printLabelsPanel = new JPanel();
         JPanel viewSalesPanel = new JPanel();
-
-        printLabelsPanel.add(new JLabel("Print Labels Menu"));
         viewSalesPanel.add(new JLabel("View Sales Menu"));
 
-        // Add form fields for "Create Listings" panel
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-
+        JPanel printLabelsPanel = new JPanel(new GridBagLayout());
+        gbc.insets = new Insets(5, 5, 5, 5);  // Padding around components
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.gridx = 1;
+        gbc.gridy = 0;
+        printLabelsPanel.add(new JLabel("Print Labels Menu"));
+        // Print Sample Button
+        gbc.gridx = 1;
+        gbc.gridy = 1;
+        JButton printButton = new JButton("Print Sample");
+        printLabelsPanel.add(printButton, gbc);
+        printButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+            	printLabel("C:\\Users\\benst\\Downloads\\label.png");
+            }
+        });
+        
         // Create Listings panel with image upload
-        JPanel createListingsPanel = new JPanel();
-        createListingsPanel.setLayout(new BoxLayout(createListingsPanel, BoxLayout.Y_AXIS));
+        JPanel createListingsPanel = new JPanel(new GridBagLayout());
+        gbc.insets = new Insets(5, 5, 5, 5);  // Padding around components
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.anchor = GridBagConstraints.WEST;
 
-        JLabel titleLabel = new JLabel("Title:");
-        JTextField titleField = new JTextField(20);
-        createListingsPanel.add(titleLabel);
-        createListingsPanel.add(titleField);
+        // Title field
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        createListingsPanel.add(new JLabel("Title:"), gbc);
 
-        JLabel priceLabel = new JLabel("Price:");
-        JTextField priceField = new JTextField(20);
-        createListingsPanel.add(priceLabel);
-        createListingsPanel.add(priceField);
+        gbc.gridx = 1;
+        JTextField titleField = new JTextField(30);  // Smaller width
+        createListingsPanel.add(titleField, gbc);
 
-        JLabel descriptionLabel = new JLabel("Description:");
-        JTextArea descriptionField = new JTextArea(5, 20);
-        createListingsPanel.add(descriptionLabel);
-        createListingsPanel.add(new JScrollPane(descriptionField));
+        // Price field
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        createListingsPanel.add(new JLabel("Price:"), gbc);
 
-        JLabel imageLabel = new JLabel("Images:");
-        JTextArea imageListArea = new JTextArea(5, 20);
+        gbc.gridx = 1;
+        JTextField priceField = new JTextField(30);
+        createListingsPanel.add(priceField, gbc);
+        
+        //Original cost field
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        createListingsPanel.add(new JLabel("Original Cost:"), gbc);
+        
+        gbc.gridx = 1;
+        JTextField costField = new JTextField(30);
+        createListingsPanel.add(costField, gbc);
+
+        // Description field
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        createListingsPanel.add(new JLabel("Description:"), gbc);
+
+        gbc.gridx = 1;
+        JTextArea descriptionField = new JTextArea(3, 30);
+        descriptionField.setLineWrap(true);
+        descriptionField.setWrapStyleWord(true);
+        JScrollPane descriptionScrollPane = new JScrollPane(descriptionField);
+        createListingsPanel.add(descriptionScrollPane, gbc);
+
+        // Image upload area
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        createListingsPanel.add(new JLabel("Images:"), gbc);
+
+        gbc.gridx = 1;
+        JTextArea imageListArea = new JTextArea(3, 30);
         imageListArea.setEditable(false);
-        createListingsPanel.add(imageLabel);
-        createListingsPanel.add(new JScrollPane(imageListArea));
+        JScrollPane imageScrollPane = new JScrollPane(imageListArea);
+        createListingsPanel.add(imageScrollPane, gbc);
 
+        // Upload button
+        gbc.gridx = 1;
+        gbc.gridy = 5;
         JButton uploadImageButton = new JButton("Select Images");
-        ArrayList<File> selectedImages = new ArrayList<>();
+        createListingsPanel.add(uploadImageButton, gbc);
 
+        ArrayList<File> selectedImages = new ArrayList<>();
         uploadImageButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 JFileChooser fileChooser = new JFileChooser();
                 fileChooser.setMultiSelectionEnabled(true);
-                fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-                int option = fileChooser.showOpenDialog(frame);
-                if (option == JFileChooser.APPROVE_OPTION) {
+                if (fileChooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
                     File[] files = fileChooser.getSelectedFiles();
                     for (File file : files) {
                         selectedImages.add(file);
@@ -108,11 +168,25 @@ public class SimpleWindow {
                 }
             }
         });
+        
+        
+        // Back button
+        gbc.gridx = 1;
+        gbc.gridy = 6;
+        JButton backButton = new JButton("Back to Main Menu");
+        createListingsPanel.add(backButton, gbc);
+        
+        //Submit button
+        gbc.gridx = 1;
+        gbc.gridy = 7;
+        JButton submitButton = new JButton("Submit");
+        createListingsPanel.add(submitButton, gbc);
 
-        createListingsPanel.add(uploadImageButton);
+        button1.addActionListener(e -> cardLayout.show(cardPanel, "CreateListings"));
+        backButton.addActionListener(e -> cardLayout.show(cardPanel, "MainMenu"));
+
 
         // Action listener for the Submit button
-        JButton submitButton = new JButton("Submit");
         submitButton.addActionListener(e -> {
             String title = titleField.getText();
             String description = descriptionField.getText();
@@ -126,13 +200,6 @@ public class SimpleWindow {
             }
         });
 
-        // Create Back button for the "Create Listings" panel
-        JButton backButton1 = new JButton("Back to Main Menu");
-        createListingsPanel.add(backButton1);
-
-        backButton1.addActionListener(e -> {
-            cardLayout.show(cardPanel, "MainMenu");
-        });
 
         // Back buttons for the other panels
         JButton backButton2 = new JButton("Back to Main Menu");
@@ -157,6 +224,7 @@ public class SimpleWindow {
             	createTable();
             	insertSampleData();
                 SalesDataDisplay.showSalesData(); // Show sales data on button click
+
             }
         });
 
@@ -289,7 +357,7 @@ public class SimpleWindow {
                       System.out.println("Label downloaded successfully: " + filePath);
 
                       // Open the print dialog to print the label
-                      printFile(filePath);
+                      printLabel(filePath);
                   } catch (IOException e) {
                       e.printStackTrace();
                   }
@@ -311,94 +379,135 @@ public class SimpleWindow {
     }
 
     // Method to open the print dialog for a file
-    public static void printFile(String filePath) {
-        try {
-            // Create a file object from the downloaded file path
-            File file = new File(filePath);
+    public static void printLabel(String filePath) {
+        FileInputStream fileInputStream = null;
 
-            // Check if the desktop is supported on the current platform. Mobile would not work here.
-            if (Desktop.isDesktopSupported()) {
-                Desktop desktop = Desktop.getDesktop();
-                if (desktop.isSupported(Desktop.Action.PRINT)) {
-                    // Open the print dialog
-                    desktop.print(file);
-                } else {
-                    System.out.println("Printing is not supported on this platform.");
-                }
-            } else {
-                System.out.println("Desktop is not supported on this platform.");
+        try {
+            // Load the label file as a FileInputStream
+            File labelFile = new File(filePath);
+            fileInputStream = new FileInputStream(labelFile);
+
+            // Determine the file type (MIME type)
+            DocFlavor flavor = DocFlavor.INPUT_STREAM.PNG;
+
+            // Locate available print services
+            PrintService[] printServices = PrintServiceLookup.lookupPrintServices(flavor, null);
+
+            if (printServices.length == 0) {
+                System.out.println("No compatible print services found. Please check your printer settings.");
+                return;
             }
+
+            // Set up print attributes
+            PrintRequestAttributeSet attributes = new HashPrintRequestAttributeSet();
+            attributes.add(new Copies(1)); // Number of copies
+            attributes.add(MediaSizeName.ISO_A4); // Paper size
+            attributes.add(OrientationRequested.PORTRAIT); // Orientation
+
+            // Show the print dialog to the user
+            PrintService selectedService = ServiceUI.printDialog(
+                    null, // Parent component (null means center on screen)
+                    200, // X position of the dialog
+                    200, // Y position of the dialog
+                    printServices, // List of available print services
+                    PrintServiceLookup.lookupDefaultPrintService(), // Default print service
+                    flavor, // Doc flavor
+                    attributes // Print request attributes
+            );
+
+            // If the user cancels the dialog, selectedService will be null
+            if (selectedService == null) {
+                System.out.println("Print job canceled by the user.");
+                return;
+            }
+
+            // Create a print job for the selected printer
+            DocPrintJob printJob = selectedService.createPrintJob();
+
+            // Create a Doc object to send to the printer
+            Doc doc = new SimpleDoc(fileInputStream, flavor, null);
+
+            // Print the document
+            printJob.print(doc, attributes);
+
+            System.out.println("Print job sent successfully!");
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("Error reading the file: " + e.getMessage());
+        } catch (PrintException e) {
+            System.out.println("Error printing the document: " + e.getMessage());
+        } finally {
+            // Close the file input stream
+            if (fileInputStream != null) {
+                try {
+                    fileInputStream.close();
+                } catch (IOException e) {
+                    System.out.println("Error closing the file stream: " + e.getMessage());
+                }
+            }
         }
     }
-    public static void connect() {
+    public static Connection connect() {
         Connection conn = null;
         try {
-            // Connect to SQLite database, or create the file if it doesn't exist
-            String url = "jdbc:sqlite:salesdata.db";
+        	String url = "jdbc:sqlite:salesdata.db";
             conn = DriverManager.getConnection(url);
-
-            System.out.println("Connection to SQLite has been established.");
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        } finally {
-            try {
-                if (conn != null) {
-                    conn.close();
-                }
-            } catch (Exception ex) {
-                System.out.println(ex.getMessage());
-            }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
+        return conn;
     }
     public static void createTable() {
-        // Database connection string (file location)
-        String url = "jdbc:sqlite:salesdata.db";
+        String createTableSQL = """
+            CREATE TABLE IF NOT EXISTS sales (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                item_title TEXT NOT NULL,
+                item_quant INTEGER NOT NULL,
+                item_price REAL NOT NULL,
+                original_cost REAL NOT NULL,
+                profit REAL NOT NULL,
+                sale_date TEXT NOT NULL
+            )
+        """;
 
-        // SQL statement to create the table
-        String sql = "CREATE TABLE IF NOT EXISTS sales ("
-                    + " id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + " item_id TEXT NOT NULL,"
-                    + " item_title TEXT NOT NULL,"
-                    + " price REAL,"
-                    + " quantity INTEGER,"
-                    + " sale_date TEXT"
-                    + ");";
-
-        // Establish connection and execute the SQL
-        try (Connection conn = DriverManager.getConnection(url);
-             Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);  // Execute the create table statement
-            System.out.println("Sales table created or already exists.");
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
+        try (Connection conn = connect();
+                Statement stmt = conn.createStatement()) {
+               stmt.execute(createTableSQL);
+               System.out.println("Table created or already exists.");
+           } catch (SQLException e) {
+               e.printStackTrace();
+           }
     }
     // Sample sales data
     public static void insertSampleData() {
-        insertSalesData("12345", "Sample Item 1", 19.99, 1, "2024-10-10");
-        insertSalesData("12346", "Sample Item 2", 49.99, 2, "2024-10-11");
-        insertSalesData("12347", "Sample Item 3", 29.99, 1, "2024-10-12");
+        insertSale("Sample Item 1", 2, 50.00, 30.00, "2024-12-01");
+        insertSale("Sample Item 2", 1, 75.00, 40.00, "2024-12-01");
+        insertSale("Sample Item 3", 1, 15.00, 4.00, "2024-12-02");
+        insertSale("Sample Item 4", 1, 30.00, 10.00, "2024-12-03");
+        insertSale("Sample Item 5", 1, 12.00, 6.00, "2024-12-04");
     }
     //Method to take sales data and place in the database
-    public static void insertSalesData(String itemId, String itemTitle, double price, int quantity, String saleDate) {
-        String url = "jdbc:sqlite:salesdata.db";
-        String sql = "INSERT INTO sales(item_id, item_title, price, quantity, sale_date) VALUES(?, ?, ?, ?, ?)";
+    public static void insertSale(String itemTitle, int itemQuant, double itemPrice, double originalCost, String saleDate) {
+        String insertSQL = """
+            INSERT INTO sales (item_title, item_quant, item_price, original_cost, profit, sale_date)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """;
 
-        try (Connection conn = DriverManager.getConnection(url);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
-            pstmt.setString(1, itemId);
-            pstmt.setString(2, itemTitle);
-            pstmt.setDouble(3, price);
-            pstmt.setInt(4, quantity);
-            pstmt.setString(5, saleDate);
+        double profit = itemPrice - originalCost; // Calculate profit
+
+        
+        try (Connection conn = connect();
+                PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+            pstmt.setString(1, itemTitle);
+            pstmt.setInt(2, itemQuant);
+            pstmt.setDouble(3, itemPrice);
+            pstmt.setDouble(4, originalCost);
+            pstmt.setDouble(5, profit);
+            pstmt.setString(6, saleDate);
 
             pstmt.executeUpdate();
-            System.out.println("Inserted sales data.");
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
+            System.out.println("Sale data inserted successfully.");
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 
